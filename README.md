@@ -23,6 +23,6 @@ Root Euclidean NO
 
 Procrustes size-and-shape NO
 
-Full Procrustes shape
+Full Procrustes shape ?
 
-Power Euclidean
+Power Euclidean ?
