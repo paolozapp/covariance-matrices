@@ -19,7 +19,7 @@ Riemannian
 
 Cholesky NO
 
-Root Euclidean
+Root Euclidean NO
 
 Procrustes size-and-shape NO
 
