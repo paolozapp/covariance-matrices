@@ -1,4 +1,4 @@
-# covariance-matrices
+# Distance between two covariance matrices
 
 Using the paper "Non-Euclidean statistics for covariance matrices, with applications to diffusion tensor imaging" by Dryden et al. (2009), published on The Annals of Applied Statistics, as source, the hypotesis that the distribution of the main distances between two covariance matrices (cfr. p. 1112) depends only on the number of covariates (p) and the numerosity of two samples (n,m) is tested.
 
