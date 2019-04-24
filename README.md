@@ -12,10 +12,17 @@ This is the method:
 
 
 Euclidean 
+
 Log-Euclidean YES
+
 Riemannian
+
 Cholesky NO
+
 Root Euclidean
+
 Procrustes size-and-shape NO
+
 Full Procrustes shape
+
 Power Euclidean
