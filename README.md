@@ -11,11 +11,11 @@ This is the method:
 - if they're completely different, there's high chance that the distribution depends on Sigma
 
 
-Euclidean 
+Euclidean NO
 
 Log-Euclidean YES
 
-Riemannian
+Riemannian YES
 
 Cholesky NO
 
