@@ -4,8 +4,8 @@ library(matrixStats)
 library(expm)
 
 p <- 4;
-n <- round(3*p+40*runif(1));
-m <- round(3*p+40*runif(1));
+n <- round(5*p+40*runif(1));
+m <- round(5*p+40*runif(1));
 
 #same Sigma: pvalue should be high
 
@@ -18,11 +18,9 @@ geodesic <- Geodesic_covariance_test(x,y);
 geodesic$pvalue
 
 #different Sigma: pvalue should be low
-Sigma2 <- matrix(c(6,2,0,-1,2,5,-3,-1,0,-3,5,0,1,-1,0,6),p,p);
+Sigma2 <- matrix(c(10,-1,0,1,-1,6,0,0,0,0,8,-1,1,0,-1,6),p,p);
 x <- mvrnorm(n,mu,Sigma);
 y <- mvrnorm(m,mu,Sigma2);
 
 geodesic2 <- Geodesic_covariance_test(x,y);
 geodesic2$pvalue
-
-
