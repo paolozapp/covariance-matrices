@@ -26,3 +26,16 @@ Procrustes size-and-shape NO
 Full Procrustes shape ?
 
 Power Euclidean ?
+
+Each test is perform in the corrispondent *.m Matlab file.
+
+
+# Test for equality of two covariance matrices
+
+In the Log-Euclidean case, the answer is YES. Therefore, given n,m,p it's possible to numerically compute the distribution function with a random Sigma, for instance the identity matrix.
+Known the distribution function, it's possible to determine a test for equality of two covariance matrices.
+
+geodesic_distribution.R is the code to compute the distribution
+geod_density is the simulation of the distribution function
+geodesic.R contains the code with the test above described
+test.R contains the code with an example of how to run the test
