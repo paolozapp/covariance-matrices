@@ -36,7 +36,7 @@ for i=1:N
     dist = [dist newdist];
 end
 
-histogram(dist,'Normalization','probability')
+histogram(dist,'Normalization','probability','NumBins',round(max(dist))*4)
 hold on
 if jjj == 1
     xmax = max(dist)+0.5;
