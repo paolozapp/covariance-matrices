@@ -16,6 +16,7 @@ y <- mvrnorm(m,mu,Sigma);
 
 geodesic <- Geodesic_covariance_test(x,y);
 geodesic$pvalue
+geodesic$time
 
 #different Sigma: pvalue should be low
 Sigma2 <- matrix(c(10,-1,0,1,-1,6,0,0,0,0,8,-1,1,0,-1,6),p,p);
@@ -24,3 +25,4 @@ y <- mvrnorm(m,mu,Sigma2);
 
 geodesic2 <- Geodesic_covariance_test(x,y);
 geodesic2$pvalue
+geodesic2$time
