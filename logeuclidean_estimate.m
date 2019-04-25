@@ -32,11 +32,12 @@ for i=1:N
     y = sqrt(diag(R)).*(Q'*randn(p,1));
     Sy=Sy+y*y';
     end
-    newdist = norm(sqrtm(Sx)-sqrtm(Sy));
+    newdist = norm(logm(Sx)-logm(Sy));
     dist = [dist newdist];
 end
 
-histogram(dist,'Normalization','probability','NumBins',round(max(dist))*4)
+%figure
+histogram(dist,'Normalization','probability')
 hold on
 if jjj == 1
     xmax = max(dist)+0.5;
