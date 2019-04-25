@@ -1,0 +1,278 @@
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)); #set working directory to this folder, RStudio
+#setwd(getSrcDirectory()[1]) #set working directory to this folder, R
+
+
+#inputfile = .xml file to be analysed
+#outputfilename = how you wish to call the csv file
+#displayinfo = by default it's false, if it's set as true it displays the result to the Console
+#the function takes 'inputfile' as input, has no outputs and prints the csv file, calling it 'outputfilename'
+ZappalaPaolo_solution <- function(inputfile,outputfilename,displayinfo=FALSE){
+  
+  if (displayinfo == TRUE) {
+    beginningtime <- Sys.time()
+  }
+  
+  ######## upload my data, if not already uploaded ########
+  
+  if(prod(c("goalkeepers", "goalkeepers_cov_inv","positionlimits","outfieldplayers","outfieldplayers_cov_inv") %in% ls()) == 0) {
+    load("data")
+  }
+  
+  ######## upload file ########
+  
+  filename <- xmlTreeParse(inputfile)
+  rootname <- xmlRoot(filename)
+  dataname <- xmlToList(rootname)
+  
+  rm(filename,rootname) #not useful anymore
+  
+  ######## data extraction ########
+  
+  player <-NULL; #types of the player 
+  areas <- NULL; #areas of the player
+  
+  for (j in 1:((length(dataname))-2)) {
+    if (is.character(dataname[[j]])) {
+      if (! (dataname[[j]][["type_id"]] %in% c("30","37","27","68"))) {
+          if(dataname[[j]][["player_id"]] == "1")
+                player <- c(player,dataname[[j]][["type_id"]]);
+        }
+    }
+    else if ("player_id" %in% names(dataname[[j]]$.attrs)){
+      if(dataname[[j]]$.attrs[["player_id"]] == "1") {
+          player <- c(player,dataname[[j]]$.attrs[["type_id"]]);
+      for (k in 1:(length(dataname[[j]])-1)) {
+        if(!is.null(dataname[[j]][k]$Q)) {
+        if(dataname[[j]][k]$Q[["qualifier_id"]] == "56") {
+           areas <- c(areas,dataname[[j]][k]$Q[["value"]]);
+          }
+        }
+        else {
+          if(dataname[[j]][[k]] == "56" ) 
+          areas <- c(areas,dataname[[j]][[k+1]]);
+        }
+      }
+          
+    }
+      
+      
+    }
+  }
+  
+  x <- NULL; #last ten's x-coordinate
+  y <- NULL; #last ten's y-coordinate
+  last <- NULL; #last ten's team IDs
+  lasttypes <- NULL; #last ten's type_IDs
+  
+  for (j in ((length(dataname))-11):((length(dataname))-2)) {
+      x <- c(x,dataname[[j]][["x"]]);
+      y <- c(y,dataname[[j]][["y"]]);
+      last <- c(last,dataname[[j]][["team_id"]])
+      lasttypes <- c(lasttypes,dataname[[j]][["type_id"]])
+  }
+  
+  rm(j,k,dataname,inputfile); #not useful anymore
+  
+  ####### first question #######
+  ID_solution <- 55948; #default choice (random)
+  
+  #is it a goalkeeper or not?
+  if(sum(c("11","41","52","53","54") %in% player)>0) {
+    #it's a goalkeeper
+    
+    # selection of the variables of interest
+    v <- c(length(player),
+           sum(player=="5"),
+           sum(player=="10")+sum(player=="58")+sum(player=="17")+sum(player=="4"),
+           sum(player=="49"),
+           sum(player=="11")-sum(player=="53"),
+           sum(player=="59")+sum(player=="12"),
+           sum(player=="41"),
+           sum(player=="54")-sum(player=="45"));
+    # computation of the mahalanobis distance
+    distances <- t((t(goalkeepers)-v)^2) %*% goalkeepers_cov_inv;
+    # only one of the players with minimum distance is picked
+    ID_solution <- rownames(distances)[which(distances == min(distances))][1];
+    
+    rm(v,distances); #not useful anymore
+  } else {
+    #it's not a goalkeeper
+    
+    # screening by positions
+    # areas become % of areas
+    areas <- c(sum(areas=="Back"),sum(areas=="Left"),sum(areas=="Right"),sum(areas=="Center"))/length(areas);
+    # only the players who can be in those positions
+    IDsok <- (positionlimits[,"Back_lower"] < areas[1])*(positionlimits[,"Back_upper"] > areas[1])*(positionlimits[,"Left_upper"] > areas[2])*(positionlimits[,"Right_upper"] > areas[3])*(positionlimits[,"Center_upper"] > areas[4]);
+    
+    # selection of the variables of interest
+    v <- c(sum(player=="16"),
+           sum(player=="17"),
+           sum(player=="2"),
+           sum(player=="4"),
+           sum(player=="44"),
+           sum(player=="45"),
+           sum(player=="49"),
+           sum(player=="5"),
+           sum(player=="50"),
+           sum(player=="6"),
+           sum(player=="7"),
+           sum(player=="74"),
+           sum(player=="14")+sum(player=="15"),
+           sum(player=="61")+sum(player=="51"),
+           sum(player=="42")+sum(player=="3"),
+           sum(player=="13")+sum(player=="60"),
+           sum(player=="12")+0.51*sum(player=="8")+3.26*sum(player=="10")+2.67*sum(player=="55")+3.79*sum(player=="56"),
+           length(player)+sum(player=="1")
+           );
+    
+    #if player plays less or more than 15 mins, everything is scaled as it played 15 mins
+    if(sum(c("18","19") %in% player)>0) {
+      v <- v/length(player)*9;
+    }
+    
+    # computation of the mahalanobis distance
+    distances <- t((t(outfieldplayers[which(IDsok==TRUE),])-v)^2) %*% outfieldplayers_cov_inv;
+    # only one of the players with minimum distance is picked
+    ID_solution <- rownames(distances)[which(distances == min(distances))][1];
+    
+    
+    rm(v,distances,IDsok) #not useful anymore
+  }
+  
+  ID_solution <- as.integer(ID_solution) #from string to integer
+  rm(player,areas); #not useful anymore
+  
+  ####### second and third question #######
+  y_solution <- as.numeric(y[length(y)]) #default choice (last position)
+  x_solution <- as.numeric(x[length(x)]) #default choice (last position)
+  HomeBoolean_solution <- as.integer(last[length(last)]) #default choice (random)
+  
+  #unless in the following three cases
+  if (lasttypes[length(lasttypes)] %in% c("12","13","14","15","16","17","2","3","4","41","44","45","5","50","51","53","55","57","58","6","60","61")) {
+    #different team
+    HomeBoolean_solution <- abs(1-HomeBoolean_solution);
+    y_solution <- 100-y_solution; #default choice (last position)
+    x_solution <- 100-x_solution; #default choice (last position)
+  }
+  
+  if((lasttypes[length(lasttypes)] == "10") & (lasttypes[length(lasttypes)-1] != "7")) {
+    HomeBoolean_solution <- abs(1-HomeBoolean_solution);
+    y_solution <- 100-y_solution; #default choice (last position)
+    x_solution <- 100-x_solution; #default choice (last position)
+  }
+  
+  if(lasttypes[length(lasttypes)] == "19"){
+    HomeBoolean_solution <- abs(1-as.integer(last[length(last)-2]));
+    y_solution <- y[length(last)-2];
+    x_solution <- x[length(last)-2];
+  }
+  
+  #by default it's in the same place as before, otherwise it moves
+  
+  # either at random or the center of the pitch
+  if(lasttypes[length(lasttypes)] %in% c("16","17","20","43","58","56")) {
+    y_solution <- 50;
+    x_solution <- 50;
+  }
+  
+  #closest lateral side of the pitch
+  if(lasttypes[length(lasttypes)] %in% c("5","57")) {
+    y_solution <- (y_solution > 50) * 100;
+  }
+  
+  #closest corner 
+  if(lasttypes[length(lasttypes)] == "6") {
+    y_solution <- (y_solution > 50) * 100;
+    x_solution <- (x_solution > 50) * 100;
+  }
+  
+  #closest goal line
+  if(lasttypes[length(lasttypes)] == "13") {
+    x_solution <- (x_solution > 50) * 100;
+    y_solution <- 50;
+  }
+  
+  # 8 ahead of it
+  if(lasttypes[length(lasttypes)] == "15") {
+    x_solution <- (x_solution > 50) * 100 + 8 * (1-2*(x_solution > 50));
+    y_solution <- 50;
+  }
+  
+  # 10 ahead of it
+  if(lasttypes[length(lasttypes)] == "52") {
+    x_solution <- (x_solution > 50) * 100 + 10 * (1-2*(x_solution > 50));
+    y_solution <- 50;
+  }
+  
+  # (0,0) by default
+  if(lasttypes[length(lasttypes)] == "18") {
+    x_solution <- 0;
+    y_solution <- 0;
+  }
+  
+  #position is different
+  if(lasttypes[length(lasttypes)] == "2") {
+    x_solution <- max(x_solution - 19.5,0);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "10") {
+    x_solution <- min(x_solution + 3.5,100);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "11") {
+    x_solution <- min(x_solution + 7,100);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "12") {
+    x_solution <- max(x_solution - 10.5,0);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "14") {
+    x_solution <- max(x_solution - 8,0);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "41") {
+    x_solution <- max(x_solution - 14,0);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "45") {
+    x_solution <- min(x_solution + 2.5,100);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "55") {
+    x_solution <- max(x_solution - 11,0);
+  }
+  
+  if(lasttypes[length(lasttypes)] == "59") {
+    x_solution <- min(x_solution + 16.5,100);
+    y_solution <- y_solution + 50 * (1-2*(y_solution > 50)); #50 meters to the opposite side
+  }
+  
+  
+  
+  
+  solution <- list(ID_solution, HomeBoolean_solution,y_solution,x_solution)
+  
+  #create csv from variables
+  write.table(solution, file = outputfilename,row.names=FALSE,col.names=FALSE,sep = ",")
+  
+  #print the result
+  if (displayinfo == TRUE) {
+    endtime <- Sys.time()
+    print(paste("ID: ",as.character(ID_solution),sep=""),quote = FALSE)
+    print(paste("Home: ",as.character(HomeBoolean_solution),sep=""),quote = FALSE)
+    print(paste("(y,x): (",as.character(y_solution),",",as.character(x_solution),")",sep=""),quote = FALSE)
+    print(paste("Computing time: ",as.character(round((endtime-beginningtime),digits = 2))," s",sep=""),quote = FALSE)
+    rm(beginningtime,endtime)
+  }
+  
+  #remove all the variables
+  rm(ID_solution,HomeBoolean_solution,x_solution,y_solution,solution)
+}
+
+
+#example of application
+ZappalaPaolo_solution(inputfile = "Example test base file - f24-24-2016-853139-eventdetails_test_hackaton_2.xml",outputfilename = "ZappalaPaolo_psgx.csv")
+
+#debug
+#ZappalaPaolo_solution(inputfile = "Example test base file - f24-24-2016-853139-eventdetails_test_hackaton_2.xml",outputfilename = "ZappalaPaolo_psgx.csv",displayinfo = TRUE)

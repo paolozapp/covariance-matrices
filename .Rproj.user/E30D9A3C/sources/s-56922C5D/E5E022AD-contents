@@ -1,0 +1,419 @@
+###--------------------###
+### LAB 4 (03/04/2017) ###
+###--------------------###
+
+### TOPIC:
+### Principal Component Analysis
+### Testing for multivariate normality
+
+setwd("~/Google Drive/PoliMI/Applied Statistics/Directory/Lab 4 - 26.03.2018")
+
+library(rgl)
+library(mvtnorm)
+library(car)
+library(mvnormtest)
+
+#_______________________________________________________________________________
+##### Example: 
+# it's a TDE!!
+##### Question (c) of Problem 3 of the 29/06/2010 exam
+## The file scotland.txt collects the number of residents in Scotland, according
+## to the last census of 2001, divided by age and county. Assume the data 
+## associated with different counties to be independent and identically distributed,
+## and assume the data corresponding to different age ranges to be dependent.
+## Perform a dimensionality reduction of the dataset through a principal component
+## analysis and interpret the obtained components
+
+# TIP: read very carefully the text of the exercise
+
+age <- read.table('scotland.txt', header=T)
+# each cell is the number of people
+head(age)
+dim(age)
+
+quartz()
+pairs(age, pch=19)
+matplot(t(age), type='l', xlab='Age', ylab='Number of Residents', lty=1, col=rainbow(33), las=1)
+# one line for statistical unit
+# we expect a strong dependance from one statistical unit to another (1 to 2, 2 to 3), because there should be a continuity in making children
+
+S <- cov(age)
+image(S, asp=1)
+# the diagonal is from left down to right up
+# the lower values of covariance (variance if in the diagonal) the more red it is.
+# as expected, the farther you go (i.e. 1 to 5), the lower is the covariance.
+
+var.gen <- det(S)
+var.tot <- sum( diag(S) )
+
+# PCA (on the covariance matrix)
+pc.age <- princomp(age, scores=T)
+pc.age
+summary(pc.age)
+# I could take just the first, or the first two PCs.
+
+# Explained variance
+quartz()
+layout(matrix(c(2,3,1,3),2,byrow=T))
+barplot(pc.age$sdev^2, las=2, main='Principal Components', ylab='Variances')
+barplot(sapply(age,sd)^2, las=2, main='Original variables', ylab='Variances')
+plot(cumsum(pc.age$sdev^2)/sum(pc.age$sde^2), type='b', axes=F, xlab='number of components', ylab='contribution to the total variance', ylim=c(0,1))
+abline(h=1, col='blue')
+abline(h=0.8, lty=2, col='blue')
+box()
+axis(2,at=0:10/10,labels=0:10/10)
+axis(1,at=1:ncol(age),labels=1:ncol(age),las=2)
+# There is clearly an elbow
+
+# Scores
+scores.age <- pc.age$scores
+scores.age
+
+quartz()
+layout(matrix(c(1,2),2))
+boxplot(age, las=2, col='gold', main='Original variables')
+scores.age <- data.frame(scores.age)
+boxplot(scores.age, las=2, col='gold', main='Principal components')
+# Let's keep the second PC, because the variance is almost the same as the first PC
+# The first PC's variance is strongly influenced by outliers.
+# The outliers in this case are very important
+
+load.age    <- pc.age$loadings
+load.age
+# the first PC is an average, as usual. It means that the more you have a first PC, the smaller is the county.
+# in the second PC we can see a contrast. The more is the first PC, the younger is the population
+# it is always w.r.t. the mean
+
+quartz()
+par(mar = c(1,4,0,2), mfrow = c(3,1))
+for(i in 1:3)barplot(load.age[,i], ylim = c(-1, 1))
+
+quartz()
+plot(scores.age[,1],scores.age[,2],type="n",xlab="pc1",ylab="pc2", asp=1)
+text(scores.age[,1],scores.age[,2],dimnames(age)[[1]], cex=0.7)
+# Sutherland is a big county, Aberdeenshire is a small county
+# Stirlingshire is a very old county, County of Moray is a very small county
+
+quartz()
+biplot(pc.age)
+
+graphics.off()
+#_______________________________________________________________________________
+##### Testing the hypothesis of multivariate normality
+
+# We generate a sample of n=150 observation from bivariate Gaussian (as in LAB_3.R)
+
+mu <- c(1,2)
+mu
+sig <- matrix(c(1,1,1,2), 2)
+sig
+
+n   <-  150 # I will generate 150 samples of a Gaussian variable
+
+set.seed(10420016)
+X <- rmvnorm(n, mu, sig)
+
+x.1 <- seq(-4,6,0.15); x.2 <- seq(-4,8,0.15)
+w <- matrix(NA, length(x.1), length(x.2))
+for(i in 1:length(x.1))
+{  for(j in 1:length(x.2))
+{w[i,j] <- dmvnorm(c(x.1[i],x.2[j]),mu,sig)}
+}
+
+quartz()
+image(x.1, x.2, w,asp=1, ylim=c(-4,8), main="Sample points")
+points(X[,1],X[,2],pch=20,cex=.75)
+# Malahanobis distance turns a circle into an ellypse
+
+dev.off()
+
+### Test of normality
+#_______________________________________________________________________________
+### Approach 1: look at some linear combinations of the original variables
+### Example: original variables, principal components
+
+quartz()
+par(mfrow=c(2,2))
+
+hist(X[,1], prob=T, ylab='density', xlab='X.1', main='Histogram of X.1',ylim=c(0,0.45))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(X[,1]),sd(X[,1])), col='blue', lty=2)
+
+hist(X[,2], prob=T, ylab='density', xlab='X.2', main='Histogram of X.2',ylim=c(0,0.45))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(X[,2]),sd(X[,2])), col='blue', lty=2)
+
+qqnorm(X[,1], main='QQplot of X.1',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(X[,1])
+
+qqnorm(X[,2], main='QQplot of X.2',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(X[,2])
+# I should have points on a straight line
+
+# we perform univariate tests of normality on the two components
+shapiro.test(X[,1])
+shapiro.test(X[,2])
+# I reject if I observe a small W
+
+# Recall: Shapiro-Wilk test
+# H0: X~N 
+# test statistics: W=(angular coeff. of the qqline)^2/sample variance
+# One can prove that:
+# - w<1
+# - the empirical distribution under H0 is concentrated on values near 1 
+#   (if n=50 more than 90% of the obs. is between 0.95 and 1)
+#   (if n=5 more than 90% of the obs. is between 0.81 and 1).
+# 
+# If the data do NOT come from a Gaussian distribution, the distribution of 
+# the test statistics moves toward smaller values:
+# Small values of the statistics W give evidence against H0
+# => reject H0 for small values of W
+
+# we look at the directions of the PCs
+pc.X <- princomp(X,scores=T)
+#pc.X$scores
+
+quartz()
+par(mfrow=c(2,2))
+hist(pc.X$scores[,1], prob=T, ylab='density', xlab='comp.1', main='Histogram of PC1',ylim=c(0,0.41))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(pc.X$scores[,1]),sd(pc.X$scores[,1])), col='blue', lty=2)
+hist(pc.X$scores[,2], prob=T, ylab='density', xlab='comp.2', main='Histogram of PC2',ylim=c(0,0.7))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(pc.X$scores[,2]),sd(pc.X$scores[,2])), col='blue', lty=2)
+qqnorm(pc.X$scores[,1], main='QQplot of PC1',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(pc.X$scores[,1])
+qqnorm(pc.X$scores[,2], main='QQplot of PC2',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(pc.X$scores[,2])
+
+# Shapiro on the PCs
+
+shapiro.test(pc.X$scores[,1])
+shapiro.test(pc.X$scores[,2])
+
+# Other possible combinations: sum and difference
+X.sum=X[,1]+X[,2]
+X.diff=X[,1]-X[,2]
+
+quartz()
+par(mfrow=c(2,2))
+hist(X.sum, prob=T, ylab='density', xlab='X.1+X.2', main='Histogram of X.1+X.2',ylim=c(0,0.2))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(X.sum),sd(X.sum)), col='blue', lty=2)
+hist(X.diff, prob=T, ylab='density', xlab='X.1-X.2', main='Histogram of X.1-X.2',ylim=c(0,0.5))
+lines((-1000):1000 /100, dnorm((-1000):1000 /100,mean(X.diff),sd(X.diff)), col='blue', lty=2)
+qqnorm(X.sum, main='QQplot of X.1+X.2',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(X.sum)
+qqnorm(X.diff, main='QQplot of X.1-X.2',xlab='theoretical quantiles', ylab='sample quantiles')
+qqline(X.diff)
+
+shapiro.test(X.sum)
+shapiro.test(X.diff)
+
+graphics.off()
+
+# Problem:
+# Which level should I use in each test, to get a global level of alpha?
+
+# I should test infinity directions, how?
+# Multivariate problem: how to manage all the possible directions at once?
+# Bonferroni correction, ...
+
+#_______________________________________________________________________________
+### Approach 2 (homework)
+### Consider the Mahalanobis distances of the data from the (sample) mean
+### and test if they are a sample from a chi-square distribution
+
+# Recall:
+# Theorem: if X~N(mu,Sigma) r.v. in R^p, det(Sigma)>0
+#          then d2(X,mu)=(X-mu)'Sigma^-1(X-mu) ~ Chi-sq(p)
+
+# try to do it at home!
+
+#_______________________________________________________________________________
+### Approach 3: test of all the directions simultaneously, by looking at the min
+### of the shapiro-wilk statistics
+
+# We want to test them all at once!
+# we have x1....xn ~ N
+# we need a statistics W, which is the distribution of W under H0 : FW
+# we can find the quantile qW
+
+# We reject H0: X ~ N if we observe a "low" value of W along at least 
+# one direction, i.e., if the minimum of W along the direction is "low" 
+# Here, "low" has to be interpreted in terms of the distribution of the
+# test statistics (min(W)) under H0!
+# --> To see how much we reject globally if we set a threashold
+#    alpha=10% at the univariate tests see Experiment.R
+
+# Example with our simulated data: we compute the W statistics for all
+# the directions. In all the other cases we couldn't do this computation, 
+# but we have an explicit expression for W.min which can be used
+theta   <- seq(0, pi - pi/180, by = pi/180)
+W       <- NULL
+P       <- NULL
+for(i in 1:length(theta))
+{
+  a   <- c(cos(theta[i]), sin(theta[i]))
+  w   <- shapiro.test(X %*% a)$statistic
+  p   <- shapiro.test(X %*% a)$p.value
+  W   <- c(W, w)
+  P   <- c(P, p)
+}
+
+quartz()
+par(mfrow = c(2,1))
+plot(theta, W, main = 'W statistics', ylim = c(0.95,1), type='l')
+abline(v=c(0, pi/2), col = 'blue')
+abline(v= atan(princomp(X)$loadings[2,]/princomp(X)$loadings[1,]), col='red')
+abline(v= atan(princomp(X)$loadings[2,]/princomp(X)$loadings[1,]) + pi, col='red')
+
+# this is the statistics for all the directions
+# but I'm focusing only on 4 directions
+# this is the Montecarlo
+
+plot(theta, P, main = 'P-values', ylim = c(0,1), type='l')
+abline(v=c(0, pi/2), col = 'blue')
+abline(h=0.10, col = 'blue', lty = 2) # set alpha=10%
+abline(v= atan(princomp(X)$loadings[2,]/princomp(X)$loadings[1,]), col='red')
+abline(v= atan(princomp(X)$loadings[2,]/princomp(X)$loadings[1,]) + pi, col='red')
+
+# Hence, we just need to set the threshold as the quantile of order alpha
+# of the distribution of min(W) under H0
+
+# Formally: 
+# H0: X ~ N vs H1=H0^c
+# test statistics: min(W) ~ F under H0
+# Reject H0 if {min(W)<qF(alpha)}, 
+# with qF s.t. P(min(W) < qF(alpha)|H0) = alpha
+
+# We approximate the distribution with an histogram and then we pretend that this is my null assumption
+
+# Since we do not know the distribution F of min(W), we can approximate it with
+# a Monte Carlo method. That is, we approximate the distribution of min(W) with a 
+# histogram generated by simulating Gaussian samples. The quantile qF(alpha) is
+# estimated with the sample quantile of order alpha from the samples
+
+# Note: an explicit expression is available for min(W). It is computed 
+# by the function mshapiro.test 
+
+# Example: for 200 sample we can compute W.a, min(W.a) and look at its distribution
+min.W=NULL
+for(i in 1:200)
+{
+  Y <- rmvnorm(n, mu, sig)
+  min.W <- c(min.W, mshapiro.test(t(Y))$stat)
+}
+# all is made under the null assumption
+quartz()
+hist(min.W, prob=T, col='grey81', main='Histogram of min(W)'); box()
+abline(v=quantile(min.W, probs = .1), col=2)
+text(quantile(min.W, probs = .1), 85, labels = expression(q[F](1-alpha)),
+     pos=2)
+
+# => I'll reject H0 if {min(W)<qF(alpha)}, with qF(alpha)~.98
+quantile(min.W, probs = .1)
+
+# Actual observation of min(W)
+min.W0 = mshapiro.test(t(X))$stat
+min.W0 # accept H0
+
+abline(v=min.W0, col='blue')
+
+# Approximate the p-value with Monte Carlo: count how many realizations under H0
+# are associated with a min(W) lower than the actual observation
+
+# Proportion of the realization that has min(W) lower than min.W0
+sum(min.W < min.W0)/200
+
+# 0.87 is very good
+
+# Very high p-value => accept H0
+
+### The function mcshapiro.test implements a procedure that:
+### 1- approximate the distribution of the statistics min(W.a) - via MC
+### 2- performs a test of normality based on the (approximates) distribution of min(W.a)
+### 3- returns an approximate p-value of the test at point 2-
+mcshapiro.test <- function(X, devstmax = 0.01, sim = ceiling(1/(4*devstmax^2)))
+  # we can trust until the second digit, because the maximum of the standard deviation is 0.01
+{
+  library(mvnormtest)
+  n   <- dim(X)[1]
+  p   <- dim(X)[2]
+  mu  <- rep(0,p)
+  sig <- diag(p)
+  W   <- NULL
+  for(i in 1:sim)
+  {
+    Xsim <- rmvnorm(n, mu, sig)
+    W   <- c(W, mshapiro.test(t(Xsim))$stat)
+    # mshapiro.test(X): compute the statistics min(W.a) for the sample X
+  }
+  Wmin   <- mshapiro.test(t(X))$stat   # min(W.a) for the given sample
+  pvalue <- sum(W < Wmin)/sim          # proportion of min(W.a) more extreme than the observed Wmin
+  # now it's 0.826, it's different because it's a simulation
+  devst  <- sqrt(pvalue*(1-pvalue)/sim)
+  list(Wmin = as.vector(Wmin), pvalue = pvalue, devst = devst, sim = sim)
+}
+
+mcshapiro.test(X)
+
+graphics.off()
+
+# to test that data are gaussian we always run a mcshapiro test
+# TIP: it's VERY recommendable to do it only ONCE, and save all data in a folder, and then upload them every time
+# instead of running a simulation every single time
+
+#_______________________________________________________________________________
+# Example: test of normality for the dataset stiff
+# Dataset: each sample unit is a board. For each board, four measures of 
+# stiffness are taken (X1: sending a shock wave, X2: while vibrating the board, 
+# X3 and X4: static tests)
+
+# check on the Johnson Wichern
+
+stiff <- read.table('stiff.dat')
+stiff
+
+quartz()
+plot(stiff, asp=1, pch=19)
+# they're correlated
+
+# Normality of the components
+quartz(width=12)
+par(mfcol=c(2,4))
+
+for(i in 1:4)
+{
+  hist(stiff[,i], prob=T, main=paste('Histogram of V', i, sep=''), xlab=paste('V', i, sep=''))
+  lines(900:2800, dnorm(900:2800,mean(stiff[,i]),sd(stiff[,i])), col='blue', lty=2)
+  qqnorm(stiff[,i], main=paste('QQplot of V', i, sep=''))
+  qqline(stiff[,i])
+  print(shapiro.test(stiff[,i])$p)
+}
+
+# Normality of the principal components
+PCs <- data.frame(princomp(stiff)$scores)
+
+quartz()
+plot(PCs, asp=1, pch=19)
+
+quartz(width=13)
+par(mfcol=c(2,4))
+for(i in 1:4)
+{
+  hist(PCs[,i], prob=T, main=paste('Histogram of PC', i, sep=''))
+  lines(seq(min(PCs[,i]), max(PCs[,i]), length=2000), dnorm(seq(min(PCs[,i]), max(PCs[,i]), length=2000),mean(PCs[,i]),sd(PCs[,i])), col='blue', lty=2)
+  qqnorm(PCs[,i], main=paste('QQplot of PC', i, sep=''))
+  qqline(PCs[,i])
+  print(shapiro.test(PCs[,i])$p)
+}
+# Problem: the second PC is really not very gaussian
+# Problem: there is skewness in the third PC
+
+mcshapiro.test(stiff)
+
+# 0.0012 is very low: I reject the assumption that it is gaussian
+
+### The data don't seem Gaussian. What can we do?
+### Identify clusters 
+### Identify (and possibly remove) outliers -> but do not forget about them!
+### Transform the data (e.g., Box-Cox transformations, see Johnson-Wichern Chap.4.8,
+###                     R functions powerTransform(); bcPower())
+# e.g. if it is positive, you have to transform them
+### Work without the Gaussian assumption (e.g., permutation tests)

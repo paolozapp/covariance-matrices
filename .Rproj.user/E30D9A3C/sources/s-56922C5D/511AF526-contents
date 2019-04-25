@@ -1,0 +1,26 @@
+Geodesic_covariance_test <- function(x,y){
+  if(!dim(x)[2]==dim(y)[2]) {
+    stop("Dimensions of the inputs don't match.")
+  } 
+  p <- dim(x)[2];
+  n <- dim(x)[1];
+  m <- dim(y)[1];
+  
+  Sx <- matrix(rep(0,p*p),p,p);
+  for (j in 1:n) {
+    Sx <- Sx + x[j,] %*% t(x[j,]);
+  }
+  
+  Sy <- matrix(rep(0,p*p),p,p);
+  for (j in 1:m) {
+    Sy <- Sy + y[j,] %*% t(y[j,]);
+  }
+
+  load("geod_density")
+  
+  test <- frobenius.norm(logm(Sx)-logm(Sy));
+  pvalue <- sum(test<geod_density)/length(geod_density);
+  
+  list(pvalue = pvalue)
+  
+}

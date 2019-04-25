@@ -1,0 +1,22 @@
+Geodesic_covariance_test <- function(x,y,devstmax = 0.01, sim = ceiling(1/(4*devstmax^2))){
+  if(!dim(x)[2]==dim(y)[2]) {
+    stop("Dimensions of the inputs don't match.")
+  } 
+  p <- dim(x)[2];
+  n <- dim(x)[1];
+  m <- dim(y)[1];
+  
+  Sx <- matrix(rep(0,p*p),p,p);
+  for (j in 1:n) {
+    Sx <- Sx + x[j,] %*% t(x[j,]);
+  }
+  
+  Sy <- matrix(rep(0,p*p),p,p);
+  for (j in 1:m) {
+    Sy <- Sy + x[j,] %*% t(x[j,]);
+  }
+  
+  
+  list(pvalue = pvalue)
+  
+}
