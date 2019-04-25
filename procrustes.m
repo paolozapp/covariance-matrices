@@ -40,11 +40,11 @@ for i=1:N
     dist = [dist newdist];
 end
 
-histogram(dist,'Normalization','probability','NumBins',round(max(dist))*2)
+histogram(dist,'Normalization','probability')
 hold on
 if jjj == 1
-    xmax = max(dist)+5;
-    ymax = 0.06;
+    xmax = max(dist)+0.5;
+    ymax = 0.08;
 end
 axis([0 xmax 0 ymax])
 %disp('Press any key to display next plot:')
